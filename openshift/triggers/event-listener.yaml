@@ -1,0 +1,7 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: tech-day-listener
+spec:
+  triggers:
+    - triggerRef: tech-day-trigger

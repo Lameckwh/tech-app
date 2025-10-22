@@ -1,0 +1,23 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: Trigger
+metadata:
+  name: tech-day-trigger
+spec:
+  bindings:
+    - ref: tech-day-binding
+  template:
+    ref: tech-day-template
+  interceptors:
+    - ref: github
+      params:
+        - name: eventTypes
+          value:
+            - push
+        - name: secretRef
+          value:
+            secretName: tech-day-secret
+            secretKey: github-secret-key
+    - ref: cel
+      params:
+        - name: filter
+          value: 'body.refs == "refs/heads/main"'
