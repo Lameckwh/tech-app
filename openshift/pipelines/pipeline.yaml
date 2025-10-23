@@ -1,0 +1,129 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: tech-day-pipeline
+spec:
+  params:
+    - name: GIT_REPO
+      type: string
+      description: The git repository URL to clone
+      default: "https://github.com/Lameckwh/tech-app"
+    - name: GIT_REVISION
+      type: string
+      description: The git revision (branch, tag, commit) to checkout
+      default: "master"
+    - name: CONTEXT
+      type: string
+      description: The subdirectory within the repository containing the application code
+      default: "."
+    - name: IMAGE
+      type: string
+      description: The image URL to push the built application to
+      default: "quay.io/lmbewe/tech-app"
+    - name: IMAGE_TAG
+      type: string
+      description: The tag to use for the pushed image
+      default: "latest" 
+  workspaces:
+  - name: shared-workspace
+  - name: docker-config
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      params:
+        - name: url
+          value: $(params.GIT_REPO)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: subdirectory
+          value: ""
+        - name: deleteExisting
+          value: "true"
+        - name: sslVerify
+          value: "false"
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: npm-install
+      taskRef:
+        name: npm
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: CONTEXT
+          value: $(params.CONTEXT)
+        - name: ARGS
+          value: install --no-package-lock
+      runAfter:
+        - fetch-repository
+
+    - name: npm-lint
+      taskRef:
+        name: npm
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: CONTEXT
+          value: $(params.CONTEXT)
+        - name: ARGS
+          value: run lint
+      runAfter:
+        - npm-install
+
+    - name: app-version
+      taskRef:
+        name: npm
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: CONTEXT
+          value: $(params.CONTEXT)
+        - name: ARGS
+          value: version --json | jq -r '.version'
+      runAfter:
+        - fetch-repository
+  
+    - name: build-image
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE):v$(tasks.app-version.results.output)
+        - name: DOCKERFILE
+          value: Containerfile
+        - name: CONTEXT
+          value: $(params.CONTEXT)
+        - name: TLSVERIFY
+          value: "false"
+        - name: SKIP_PUSH
+          value: "false"
+      runAfter:
+        - npm-lint
+        - app-version
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+
+    - name: deploy
+      taskRef:
+        name: openshift-client
+        kind: ClusterTask
+      params:
+        - name: SCRIPT
+          value: |
+            oc set image deployment/tech-app tech-app=$(params.IMAGE):v$(tasks.app-version.results.output)
+            oc rollout latest deployment/tech-app
+      runAfter:
+        - build-image
+
+ 

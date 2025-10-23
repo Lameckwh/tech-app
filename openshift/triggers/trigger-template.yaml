@@ -15,13 +15,13 @@ spec:
         pipelineRef:
           name: tech-day-pipeline
         params:
-          - name: gitrevision
-            value: $(tt.params.gitrevision)      
-          - name: gitrepositoryurl
+          - name: GIT_REPO
             value: $(tt.params.gitrepositoryurl)
+          - name: GIT_REVISION
+            value: $(tt.params.gitrevision)
         serviceAccountName: tech-day-sa
         workspaces:
-          - name: shared-data
+          - name: shared-workspace
             emptyDir: {}
           - name: docker-config
             secret:

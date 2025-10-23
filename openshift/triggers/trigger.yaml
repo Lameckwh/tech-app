@@ -20,4 +20,4 @@ spec:
     - ref: cel
       params:
         - name: filter
-          value: 'body.refs == "refs/heads/main"'
+          value: 'body.ref == "refs/heads/master"'
