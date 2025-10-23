@@ -88,7 +88,7 @@ spec:
         - name: CONTEXT
           value: $(params.CONTEXT)
         - name: ARGS
-          value: -p "require('./package.json').version"
+          value: pkg get version
       runAfter:
         - fetch-repository
   
@@ -122,7 +122,7 @@ spec:
         - name: SCRIPT
           value: |
             oc set image deployment/tech-app tech-app=$(params.IMAGE):v$(tasks.app-version.results.output)
-            oc rollout latest deployment/tech-app
+            oc rollout restart deployment/tech-app
       runAfter:
         - build-image
 
