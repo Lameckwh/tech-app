@@ -19,7 +19,7 @@ spec:
             value: $(tt.params.gitrepositoryurl)
           - name: GIT_REVISION
             value: $(tt.params.gitrevision)
-        serviceAccountName: tech-day-sa
+        serviceAccountName: pipeline
         workspaces:
           - name: shared-workspace
             emptyDir: {}
