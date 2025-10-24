@@ -28,10 +28,14 @@ spec:
   - name: shared-workspace
   - name: docker-config
   tasks:
+ # cluster task to fetch the git repository
     - name: fetch-repository
       taskRef:
         name: git-clone
         kind: ClusterTask
+      workspaces:
+        - name: output
+          workspace: shared-workspace
       params:
         - name: url
           value: $(params.GIT_REPO)
@@ -43,25 +47,9 @@ spec:
           value: "true"
         - name: sslVerify
           value: "false"
-      workspaces:
-        - name: output
-          workspace: shared-workspace
 
-    - name: npm-install
-      taskRef:
-        name: npm
-        kind: Task
-      workspaces:
-        - name: source
-          workspace: shared-workspace
-      params:
-        - name: CONTEXT
-          value: $(params.CONTEXT)
-        - name: ARGS
-          value: install --no-package-lock
-      runAfter:
-        - fetch-repository
 
+  # task to run npm linting
     - name: npm-lint
       taskRef:
         name: npm
@@ -73,9 +61,9 @@ spec:
         - name: CONTEXT
           value: $(params.CONTEXT)
         - name: ARGS
-          value: run lint
+          value: lint
       runAfter:
-        - npm-install
+        - fetch-repository
 
     - name: app-version
       taskRef:
