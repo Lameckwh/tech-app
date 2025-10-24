@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: inspect-image
+spec:
+  params:
+    - name: IMAGE
+      type: string
+      description: Image repository (without tag/digest)
+      default: "quay.io/lmbewe/tech-app"
+  results:
+    - name: digest
+      description: The resolved image digest (sha256:...)
+  steps:
+    - name: get-digest
+      # Use a small image with a shell; download the static crane binary at runtime
+      image: alpine:3.18
+      script: |
+        #!/bin/sh
+        set -euo pipefail
+        IMAGE="$(params.IMAGE):latest"
+        echo "Inspecting image: $IMAGE"
+        apk add --no-cache ca-certificates curl >/dev/null 2>&1 || true
+        CRANE=/tmp/crane
+        echo "Downloading crane..."
+        curl -fsSL -o ${CRANE} https://github.com/google/go-containerregistry/releases/latest/download/crane-linux-amd64
+        chmod +x ${CRANE}
+        DIGEST=$(${CRANE} digest "$IMAGE")
+        echo "Found digest: $DIGEST"
+        echo -n "$DIGEST" > $(results.digest.path)

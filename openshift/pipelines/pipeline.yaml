@@ -98,7 +98,7 @@ spec:
         kind: ClusterTask
       params:
         - name: IMAGE
-          value: $(params.IMAGE):v$(tasks.app-version.results.output)
+          value: $(params.IMAGE):latest
         - name: DOCKERFILE
           value: Containerfile
         - name: CONTEXT
@@ -121,9 +121,43 @@ spec:
       params:
         - name: SCRIPT
           value: |
-            oc set image deployment/tech-app tech-app=$(params.IMAGE):v$(tasks.app-version.results.output)
+            # Update the deployment to use the :latest tag
+            oc set image deployment/tech-app tech-app=$(params.IMAGE):latest
+            # Remove OpenShift ImageStream triggers annotation so ImageStreamTag imports
+            # don't overwrite the deployment image with a resolved digest
+            oc annotate deployment tech-app image.openshift.io/triggers- || true
+
+            # Ensure the pods always pull the image when started
+            oc patch deployment tech-app --type='json' -p='[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Always"}]' || true
+
+            # Restart to pick up the new image and wait for rollout to complete
             oc rollout restart deployment/tech-app
+            oc rollout status deployment/tech-app
       runAfter:
         - build-image
+
+    - name: resolve-digest
+      taskRef:
+        name: inspect-image
+        kind: Task
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE)
+      runAfter:
+        - build-image
+
+    - name: deploy-digest
+      taskRef:
+        name: openshift-client
+        kind: ClusterTask
+      params:
+        - name: SCRIPT
+          value: |
+            # Patch deployment to the immutable digest returned by the inspect-image task
+            DIGEST=$(tasks.resolve-digest.results.digest)
+            oc set image deployment/tech-app tech-app=$(params.IMAGE)@${DIGEST}
+            oc rollout status deployment/tech-app
+      runAfter:
+        - resolve-digest
 
  
