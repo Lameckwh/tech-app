@@ -11,20 +11,33 @@ spec:
   results:
     - name: digest
       description: The resolved image digest (sha256:...)
+  workspaces:
+    - name: docker-config
+      description: Optional workspace that mounts docker registry auth (contains .dockerconfigjson)
   steps:
     - name: get-digest
-      # Use a small image with a shell; download the static crane binary at runtime
-      image: alpine:3.18
+      # Use skopeo stable image which includes a shell and can inspect registry manifests
+      image: quay.io/skopeo/stable:latest
       script: |
         #!/bin/sh
         set -euo pipefail
         IMAGE="$(params.IMAGE):latest"
         echo "Inspecting image: $IMAGE"
-        apk add --no-cache ca-certificates curl >/dev/null 2>&1 || true
-        CRANE=/tmp/crane
-        echo "Downloading crane..."
-        curl -fsSL -o ${CRANE} https://github.com/google/go-containerregistry/releases/latest/download/crane-linux-amd64
-        chmod +x ${CRANE}
-        DIGEST=$(${CRANE} digest "$IMAGE")
+        # If a docker config secret is mounted, use it for authorization
+        AUTHFILE=""
+        if [ -d "$(workspaces.docker-config.path)" ] || [ -f "$(workspaces.docker-config.path)/.dockerconfigjson" ]; then
+          # the secret key for a docker-registry secret is usually '.dockerconfigjson'
+          if [ -f "$(workspaces.docker-config.path)/.dockerconfigjson" ]; then
+            AUTHFILE="$(workspaces.docker-config.path)/.dockerconfigjson"
+          elif [ -f "$(workspaces.docker-config.path)/config.json" ]; then
+            AUTHFILE="$(workspaces.docker-config.path)/config.json"
+          fi
+        fi
+        if [ -n "$AUTHFILE" ]; then
+          echo "Using authfile: $AUTHFILE"
+          DIGEST=$(skopeo inspect --tls-verify=false --authfile "$AUTHFILE" --format '{{.Digest}}' docker://$IMAGE)
+        else
+          DIGEST=$(skopeo inspect --tls-verify=false --format '{{.Digest}}' docker://$IMAGE)
+        fi
         echo "Found digest: $DIGEST"
         echo -n "$DIGEST" > $(results.digest.path)

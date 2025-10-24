@@ -143,6 +143,9 @@ spec:
       params:
         - name: IMAGE
           value: $(params.IMAGE)
+      workspaces:
+        - name: docker-config
+          workspace: docker-config
       runAfter:
         - build-image
 

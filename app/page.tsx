@@ -5,7 +5,7 @@ export default function Home() {
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <h1 className="text-4xl font-bold">Welcome to the Tech Day Presentation</h1>
         <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-          Haye haye shoo
+          Here were going to demonstrate OpenShift Pipelines
         </p>
       </main>
     </div>
